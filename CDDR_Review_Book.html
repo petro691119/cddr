@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YG Metal CDDR 계약 검토 묶음</title>
+<style>
+:root{--dark:#10282a;--accent:#0b716b;--soft:#eef8f6;--line:#d8e1e1;--text:#142426}
+*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;background:#edf1f2;color:var(--text)}
+.book{height:100%;display:grid;grid-template-rows:auto auto 1fr;min-width:860px}.top{display:flex;align-items:center;gap:14px;padding:9px 16px;background:var(--dark);color:#fff;box-shadow:0 2px 10px #0003;z-index:3}.top img{width:77px;height:38px;object-fit:contain;background:#fff;border-radius:4px;padding:3px}.title{min-width:230px}.title strong{display:block;font-size:17px}.title span{font-size:11px;color:#cfe0df}.tabs{display:flex;gap:6px;margin-left:8px}.tab{border:1px solid #ffffff42;border-radius:6px;background:#244348;color:#fff;padding:9px 18px;font-weight:700;cursor:pointer}.tab.active{background:var(--accent);box-shadow:inset 0 -3px #8bd9cf}.status{margin-left:auto;border:1px solid #ffffff30;border-radius:16px;background:#173b3d;padding:7px 11px;font-size:12px;white-space:nowrap}.links{display:flex;gap:7px}.links a{color:#d9efec;text-decoration:none;font-size:11px;border:1px solid #ffffff35;border-radius:4px;padding:6px 8px}.guide{display:flex;align-items:center;gap:12px;padding:7px 16px;background:#fff;border-bottom:1px solid var(--line);font-size:12px;color:#41605d}.guide b{color:var(--accent)}.dot{width:9px;height:9px;border-radius:50%;background:#58bda8;box-shadow:0 0 0 4px #dcf5ef}.pages{position:relative;min-height:0}.sheet{position:absolute;inset:0;width:100%;height:100%;border:0;background:#e9edf0;display:none}.sheet.active{display:block}
+@media(max-width:980px){.top{flex-wrap:wrap}.status{margin-left:0}.book{grid-template-rows:auto auto 1fr}.links{margin-left:auto}}
+</style>
+</head>
+<body>
+<main class="book">
+  <header class="top">
+    <img src="assets/ygm-logo.png" alt="YG Metal 로고">
+    <div class="title"><strong>CDDR 계약 검토 묶음</strong><span>Before · After 두 시트 통합 관리</span></div>
+    <nav class="tabs" aria-label="계약 검토 시트">
+      <button type="button" class="tab active" data-target="beforeFrame">① 계약 전 Before</button>
+      <button type="button" class="tab" data-target="afterFrame">② 계약 후 After</button>
+    </nav>
+    <span class="status" id="syncStatus">계약 전 의견 연결 준비</span>
+    <div class="links"><a href="CDDR_Before_dynamic.html" target="_blank">Before만 열기</a><a href="CDDR_After_dynamic.html" target="_blank">After만 열기</a></div>
+  </header>
+  <div class="guide"><span class="dot"></span><span><b>자동 연결:</b> 계약 전 시트의 검토 의견을 저장하면 같은 수주통보서 번호(C/N No.)의 계약 후 시트에 반영됩니다. 계약 후에서 직접 고친 의견은 이후 자동 덮어쓰지 않습니다.</span></div>
+  <section class="pages">
+    <iframe id="beforeFrame" class="sheet active" src="CDDR_Before_dynamic.html" title="CDDR 계약 전 시트"></iframe>
+    <iframe id="afterFrame" class="sheet" src="CDDR_After_dynamic.html" title="CDDR 계약 후 시트"></iframe>
+  </section>
+</main>
+<script>
+(()=>{
+  'use strict';
+  const BRIDGE_KEY='ygm-cddr-before-comments-v1';
+  const before=document.getElementById('beforeFrame'),after=document.getElementById('afterFrame'),status=document.getElementById('syncStatus');
+  let latest=null;
+  try{latest=JSON.parse(localStorage.getItem(BRIDGE_KEY)||'null')}catch(e){}
+  function showStatus(payload){const when=payload&&payload.savedAt?new Date(payload.savedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';status.textContent='계약 전 의견 자동 연결됨'+(when?' · '+when:'')}
+  function sendToAfter(){if(latest&&after.contentWindow)after.contentWindow.postMessage({type:'ygm-cddr-before-comments',payload:latest},'*')}
+  document.querySelectorAll('.tab').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el===button));document.querySelectorAll('.sheet').forEach(el=>el.classList.toggle('active',el.id===button.dataset.target));const target=document.getElementById(button.dataset.target);setTimeout(()=>target.contentWindow&&target.contentWindow.postMessage({type:'ygm-cddr-refresh-layout'},'*'),30);if(button.dataset.target==='afterFrame')sendToAfter()}));
+  window.addEventListener('message',event=>{
+    const data=event.data||{};
+    if(data.type==='ygm-cddr-before-comments'&&data.payload){latest=data.payload;try{localStorage.setItem(BRIDGE_KEY,JSON.stringify(latest))}catch(e){}showStatus(latest);sendToAfter()}
+    if(data.type==='ygm-cddr-request-before-comments'){
+      if(latest&&event.source)event.source.postMessage({type:'ygm-cddr-before-comments',payload:latest},'*');
+      else if(before.contentWindow)before.contentWindow.postMessage({type:'ygm-cddr-request-before-comments'},'*');
+    }
+  });
+  after.addEventListener('load',sendToAfter);
+  before.addEventListener('load',()=>setTimeout(()=>before.contentWindow&&before.contentWindow.postMessage({type:'ygm-cddr-request-before-comments'},'*'),80));
+  if(latest)showStatus(latest);
+})();
+</script>
+</body>
+</html>
